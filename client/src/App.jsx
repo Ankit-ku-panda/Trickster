@@ -179,8 +179,10 @@ function Room({ sock, code, onLeave }) {
             <h2>Lobby</h2>
             <p>Room code: <b className="err">{code}</b></p>
             {Object.values(roster).map((p, i) => <div key={i}>{p.n}</div>)}
-            <p className="mute">Anyone can start. The Trickster is picked at random and kept secret.</p>
-            <button onClick={() => sock.emit('start')}>Start game</button>
+            <p className="mute">The host starts the game. The Trickster is picked at random and kept secret.</p>
+            {hud?.host === sock.id
+              ? <button onClick={() => sock.emit('start')}>Start game</button>
+              : <p className="mute">Waiting for the host to start the game.</p>}
           </div></div>
         )}
         {hud?.phase === 'done' && <div className="over dim"><div className="px"><h2>Game over</h2><p>Winner: {roster[best[0]]?.n} ({best[1]} levels)</p></div></div>}

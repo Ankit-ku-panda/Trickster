@@ -59,7 +59,7 @@ io.on('connection', (s) => {
   s.on('create', (_, cb) => {
     let code
     do { code = Array.from({ length: 5 }, () => ALPHA[crypto.randomInt(ALPHA.length)]).join('') } while (rooms.has(code))
-    const r = { code, players: new Map(), objs: [], lvl: 0, scores: {}, phase: 'lobby', tr: null }
+    const r = { code, host: s.id, players: new Map(), objs: [], lvl: 0, scores: {}, phase: 'lobby', tr: null }
     rooms.set(code, r)
     join(r, cb)
   })
@@ -68,7 +68,7 @@ io.on('connection', (s) => {
     r ? join(r, cb) : cb({ error: 'Room not found' })
   })
   s.on('start', () => {
-    if (!room || room.phase !== 'lobby') return
+    if (!room || room.host !== s.id || room.phase !== 'lobby') return
     room.phase = 'play'; room.lvl = 0
     beginLevel(room)
   })
@@ -113,6 +113,10 @@ io.on('connection', (s) => {
     const p = room.players.get(s.id)
     room.players.delete(s.id)
     if (!room.players.size) return rooms.delete(room.code)
+    if (room.phase === 'lobby' && room.host === s.id) {
+      room.host = room.players.keys().next().value
+      sys(room, `${room.players.get(room.host).n} is now the host`)
+    }
     sys(room, `${p?.n} left`)
     if (room.phase === 'play' && room.tr === s.id) pickTrickster(room)
   })
@@ -123,7 +127,7 @@ setInterval(() => {
   for (const r of rooms.values()) {
     const players = {}
     r.players.forEach((p, id) => (players[id] = p))
-    io.to(r.code).volatile.emit('state', { phase: r.phase, lvl: r.lvl, players, scores: r.scores })
+    io.to(r.code).volatile.emit('state', { phase: r.phase, lvl: r.lvl, host: r.host, players, scores: r.scores })
   }
 }, 50)
 
