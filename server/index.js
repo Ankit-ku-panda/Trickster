@@ -5,7 +5,7 @@ import crypto from 'crypto'
 import { Server } from 'socket.io'
 import { genLevel, SIZES, LEVELS } from './game.js'
 
-const ORIGIN = process.env.CLIENT_ORIGIN || '*'
+const ORIGIN = (process.env.CLIENT_ORIGIN || '*').trim().replace(/\/+$/, '')
 const app = express()
 app.use(cors({ origin: ORIGIN }))
 app.get('/', (_, r) => r.send('Trickster server running'))
