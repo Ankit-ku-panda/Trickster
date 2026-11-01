@@ -199,7 +199,11 @@ const Player = ({ id, info, st, me, myId }) => {
 export default function Scene({ st, objs, objV, roster, me, K, T, sock, lvl, zoom, isTrickster, onEdit }) {
   const lvlRef = useRef(-1), li = Math.min(lvl, 9), th = THEMES[li], lv = LEVELS[li]
   return (
-    <Canvas camera={{ position: [0, 0, 14], fov: 45 }}>
+    <Canvas
+      camera={{ position: [0, 0, 14], fov: 45 }}
+      dpr={[1, 1.5]}
+      gl={{ antialias: false }}
+    >
       <color attach="background" args={[th.bg]} key={th.bg} />
       <ambientLight intensity={0.9} /><directionalLight position={[4, 6, 8]} intensity={1.4} />
       <CamRig me={me} zoom={zoom} />
