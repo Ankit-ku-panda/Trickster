@@ -68,7 +68,7 @@ function SndBtn() {
   return <button data-nosfx className="ib" onClick={() => { setMuted(!m); setM(!m); if (m) sfx.click() }}>{m ? 'SND OFF' : 'SND ON'}</button>
 }
 
-function Room({ sock, code, onLeave }) {
+function Room({ sock, code, onLeave, connectionError }) {
   const st = useRef(null), objs = useRef([]), me = useRef({ ...START, vy: 0 }), K = useRef({}), T = useRef(newT())
   const roleR = useRef(null), phaseR = useRef(null), msgEnd = useRef(), toolR = useRef('p'), chatR = useRef(false), toastT = useRef()
   const [objV, setObjV] = useState(0), [role, setRole] = useState(null), [tool, setTool] = useState('p')
@@ -141,6 +141,8 @@ function Room({ sock, code, onLeave }) {
     }
   }
   const roster = hud?.players || {}
+  const completed = hud?.completed || []
+  const hasCompletedLevel = completed.includes(sock.id)
   const best = hud && Object.entries(hud.scores).sort((a, b) => b[1] - a[1])[0]
   const playing = hud?.phase === 'play'
   const send = (e) => {
@@ -165,7 +167,7 @@ function Room({ sock, code, onLeave }) {
             <button className="ib" onClick={() => { setChatOpen((o) => !o); setUnread(0); setToast(null) }}>
               CHAT{unread > 0 && <span className="badge">{unread}</span>}
             </button>
-            {playing && role && <button className="ib alt" onClick={() => setToolsOpen((o) => !o)}>TOOLS</button>}
+            {playing && role && !hasCompletedLevel && <button className="ib alt" onClick={() => setToolsOpen((o) => !o)}>TOOLS</button>}
             <button className="ib pOnly" onClick={() => setZoom((z) => !z)}>{zoom ? 'FULL VIEW' : 'ZOOM IN'}</button>
             {document.fullscreenEnabled && <button className="ib" onClick={fs}>FULL</button>}
             <SndBtn />
@@ -174,11 +176,25 @@ function Room({ sock, code, onLeave }) {
         </div>
         {toast && !chatOpen && <div className="toast"><b style={{ color: COLORS[toast.c % 8] }}>{toast.n}:</b> {toast.t}</div>}
         {(note || title) && <div className="over"><h2>{note || title}</h2></div>}
+        {connectionError && (
+          <div className="over">
+            <div className="px"><h2>Connection interrupted</h2><p>{connectionError}</p></div>
+          </div>
+        )}
+        {playing && hasCompletedLevel && (
+          <div className="over">
+            <div className="px">
+              <h2>Level cleared!</h2>
+              <p>Wait for the other players to reach the gate.</p>
+              <p>{completed.length} / {Object.keys(roster).length} players ready</p>
+            </div>
+          </div>
+        )}
         {hud?.phase === 'lobby' && (
           <div className="over dim"><div className="px">
             <h2>Lobby</h2>
             <p>Room code: <b className="err">{code}</b></p>
-            {Object.values(roster).map((p, i) => <div key={i}>{p.n}</div>)}
+            {Object.values(roster).map((p, i) => <div key={i}>{p.n}{p.online === false ? ' (reconnecting)' : ''}</div>)}
             <p className="mute">The host starts the game. The Trickster is picked at random and kept secret.</p>
             {hud?.host === sock.id
               ? <button onClick={() => sock.emit('start')}>Start game</button>
@@ -212,7 +228,8 @@ function Room({ sock, code, onLeave }) {
 export default function App() {
   const [page, setPage] = useState('landing'), [err, setErr] = useState(''), [code, setCode] = useState(''), [room, setRoom] = useState(null)
   const [name, setName] = useState(() => { try { return localStorage.getItem('tn-name') || '' } catch { return '' } })
-  const sock = useRef(null)
+  const [connectionError, setConnectionError] = useState('')
+  const sock = useRef(null), roomRef = useRef(null)
 
   useEffect(() => {
     const click = (e) => { const b = e.target.closest?.('button'); if (b && !b.dataset.nosfx) sfx.click() }
@@ -227,15 +244,39 @@ export default function App() {
     sock.current?.disconnect()
     const s = connect(n)
     sock.current = s
-    s.on('connect_error', () => setErr('Server not reachable. Try again in a moment.'))
+    s.on('connect_error', () => {
+      if (roomRef.current) setConnectionError('Connection lost. Retrying...')
+      else setErr('Server not reachable. Try again in a moment.')
+    })
+    s.on('disconnect', () => {
+      if (roomRef.current) setConnectionError('Trying to reconnect to the room...')
+    })
+    s.on('connect', () => {
+      if (!roomRef.current) return
+      s.emit('resume', roomRef.current, (r) => {
+        if (r?.error) setConnectionError(`Could not reconnect to the room: ${r.error}`)
+        else { setConnectionError(''); setErr('') }
+      })
+    })
     s.emit(ev, arg, (r) => {
       if (r.error) { setErr(r.error); s.disconnect(); sock.current = null }
-      else { setErr(''); setRoom(r.code) }
+      else {
+        roomRef.current = r.code
+        setConnectionError('')
+        setErr('')
+        setRoom(r.code)
+      }
     })
   }
-  const leave = () => { sock.current?.disconnect(); sock.current = null; setRoom(null) }
+  const leave = () => {
+    roomRef.current = null
+    sock.current?.disconnect()
+    sock.current = null
+    setConnectionError('')
+    setRoom(null)
+  }
 
-  if (room) return <Room sock={sock.current} code={room} onLeave={leave} />
+  if (room) return <Room sock={sock.current} code={room} onLeave={leave} connectionError={connectionError} />
   return (
     <>
       <Backdrop />
@@ -253,12 +294,12 @@ export default function App() {
             <h2>How to play</h2>
             <ul>
               <li>Pick a username, create a room, and share the 5 letter code.</li>
-              <li>Anyone in the lobby can press Start. Nobody has extra power.</li>
+              <li>The room host starts the game. Nobody has extra power during the run.</li>
               <li>Each level the server picks one Trickster at random. Only that player is told.</li>
               <li>Crewmates run to the gold door. Arrows or WASD and Space, or the on-screen buttons on a phone.</li>
               <li>Levels are sneaky: floors collapse, spikes pop up, ceilings drop, doors run away. Die and you restart the level, so learn the traps.</li>
               <li>The Trickster plays too, and can add platforms, fake floors, hidden or falling spikes and invisible blocks live.</li>
-              <li>Use the chat on the left to accuse, bluff, and plan. First to the door scores. 10 levels.</li>
+              <li>Use the chat on the left to accuse, bluff, and plan. Everyone must reach the door to clear a level. 10 levels.</li>
             </ul>
             <button onClick={() => setPage('landing')}>Back</button>
           </div>

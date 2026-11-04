@@ -8,14 +8,20 @@ import { W, H, hit, rect, step, respawn, lethal, LEVELS, THEMES } from './game'
 const X = (x) => (x - W / 2) / 40, Y = (y) => (H / 2 - y) / 40
 
 // Camera: whole level on wide screens, follows the player on tall (portrait) screens
-function CamRig({ me, zoom }) {
+function CamRig({ me, players, zoom }) {
   useFrame(({ camera, size }) => {
     const asp = size.width / size.height, t = Math.tan((camera.fov / 2) * Math.PI / 180) * 2
     const portrait = asp < 1.1, tight = zoom && portrait
-    const d = Math.max(11.8 / t, (tight ? 9.5 : 20.8) / asp / t)
+    const xs = [me.current.x + 10, ...Object.values(players).map((player) => player.x + 10)]
+    const minX = Math.min(...xs), maxX = Math.max(...xs)
+    const groupWidth = (maxX - minX) / 40 + 4
+    const baseWidth = tight ? 9.5 : 20.8
+    const viewWidth = Math.max(baseWidth, groupWidth)
+    const d = Math.max(11.8 / t, viewWidth / asp / t)
     camera.position.z += (d - camera.position.z) * 0.15
-    const vw = t * camera.position.z * asp, lim = Math.max(0, 10.4 - vw / 2)
-    const tx = vw < 20.4 ? Math.max(-lim, Math.min(lim, X(me.current.x + 10))) : 0
+    const tx = groupWidth > baseWidth
+      ? X((minX + maxX) / 2)
+      : tight ? X(me.current.x + 10) : 0
     camera.position.x += (tx - camera.position.x) * 0.12
     camera.position.y += ((tight ? -1.3 : 0) - camera.position.y) * 0.1
   })
@@ -67,7 +73,7 @@ function Sim({ st, objs, me, K, T, sock, lvlRef }) {
   const acc = useRef(0), n = useRef(0), walkSteps = useRef(0)
   useFrame((_, dt) => {
     const S = st.current
-    if (!S || S.phase !== 'play') { acc.current = 0; return }
+    if (!S || S.phase !== 'play' || S.completed?.includes(sock.id)) { acc.current = 0; return }
     const m = me.current, lv = LEVELS[Math.min(S.lvl, 9)], s = T.current
     if (lvlRef.current !== S.lvl) { lvlRef.current = S.lvl; respawn(m, s) }
     acc.current += Math.min(dt, 0.1)
@@ -110,7 +116,7 @@ const Player = ({ id, info, st, me, myId }) => {
   return (
     <group ref={pos}>
       <group ref={rot}><Crew color={COLORS[info.c % 8]} wr={walk} scale={0.48} /></group>
-      <Html position={[0, 0.65, 0]} center style={{ pointerEvents: 'none' }}><div className="tag">{info.n}</div></Html>
+      <Html position={[0, 0.65, 0]} center style={{ pointerEvents: 'none' }}><div className="tag">{info.n}{info.online === false ? ' (reconnecting)' : ''}</div></Html>
     </group>
   )
 }
@@ -124,7 +130,7 @@ export default function Scene({ st, objs, objV, roster, me, K, T, sock, lvl, zoo
     >
       <color attach="background" args={[th.bg]} key={th.bg} />
       <ambientLight intensity={0.9} /><directionalLight position={[4, 6, 8]} intensity={1.4} />
-      <CamRig me={me} zoom={zoom} />
+      <CamRig me={me} players={roster} zoom={zoom} />
       <Sim {...{ st, objs, me, K, T, sock, lvlRef }} />
       {objs.current.map((o, i) => <Obj key={objV + '-' + i} o={o} i={i} T={T} th={th} />)}
       <Door lv={lv} T={T} key={'d' + li} />
