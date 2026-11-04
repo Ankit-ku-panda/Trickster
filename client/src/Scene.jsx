@@ -1,93 +1,11 @@
-import { useMemo, useRef } from 'react'
-import * as THREE from 'three'
+import { useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Stars, Html, Float } from '@react-three/drei'
+import { Html } from '@react-three/drei'
 import Crew, { COLORS } from './Crew'
 import { sfx } from './sfx'
 import { W, H, hit, rect, step, respawn, lethal, LEVELS, THEMES } from './game'
 
 const X = (x) => (x - W / 2) / 40, Y = (y) => (H / 2 - y) / 40
-
-// ---------- animated backgrounds, one theme per level ----------
-function Particles({ n, vx, vy, sx, sy, sw = 0, color }) {
-  const ref = useRef(), d = useMemo(() => new THREE.Object3D(), [])
-  const rotZ = sy > sx * 3 ? Math.atan2(-vx, vy) : 0
-  const N = Math.round(n * 1.8)
-  const st = useMemo(() => Array.from({ length: N }, () => ({ x: (Math.random() - 0.5) * 34, y: (Math.random() - 0.5) * 30, z: -3 - Math.random() * 6, k: 0.5 + Math.random(), p: Math.random() * 6.28 })), [N])
-  useFrame((_, dt) => {
-    dt = Math.min(dt, 0.05)
-    st.forEach((s, i) => {
-      s.p += dt
-      s.x += vx * s.k * dt + Math.sin(s.p) * sw * dt
-      s.y += vy * s.k * dt
-      if (s.y > 15) s.y = -15; if (s.y < -15) s.y = 15
-      if (s.x > 17) s.x = -17; if (s.x < -17) s.x = 17
-      d.position.set(s.x, s.y, s.z); d.rotation.z = rotZ; d.scale.set(sx, sy, sx); d.updateMatrix()
-      ref.current.setMatrixAt(i, d.matrix)
-    })
-    ref.current.instanceMatrix.needsUpdate = true
-  })
-  return <instancedMesh ref={ref} args={[null, null, N]} frustumCulled={false}><boxGeometry /><meshBasicMaterial color={color} transparent opacity={0.8} /></instancedMesh>
-}
-function Spinner({ sx = 0, sy = 0, sz = 0, children, ...r }) {
-  const g = useRef()
-  useFrame((_, dt) => { g.current.rotation.x += sx * dt; g.current.rotation.y += sy * dt; g.current.rotation.z += sz * dt })
-  return <group ref={g} {...r}>{children}</group>
-}
-const Planets = () => (
-  <>
-    <Spinner sy={0.15} position={[-7, 2.5, -9]}><mesh><sphereGeometry args={[2.2, 16, 12]} /><meshStandardMaterial color="#6d5bd0" flatShading /></mesh><mesh rotation={[1.2, 0, 0.2]}><torusGeometry args={[3.2, 0.08, 6, 40]} /><meshBasicMaterial color="#c4b5fd" /></mesh></Spinner>
-    <Spinner sy={0.2} position={[8, -3.5, -8]}><mesh><sphereGeometry args={[1.4, 14, 10]} /><meshStandardMaterial color="#e07a3f" flatShading /></mesh></Spinner>
-  </>
-)
-const Cubes = () => [...Array(12)].map((_, i) => (
-  <Float key={i} speed={2} floatIntensity={2}>
-    <Spinner sx={0.3 + (i % 3) * 0.2} sy={0.4} position={[((i * 7) % 24) - 12, ((i * 7) % 20) - 10, -4 - (i % 4)]}>
-      <mesh><boxGeometry args={[1 + (i % 3) * 0.4, 1 + (i % 3) * 0.4, 1 + (i % 3) * 0.4]} /><meshBasicMaterial wireframe color={i % 2 ? '#ff4fd8' : '#4dd0ff'} /></mesh>
-    </Spinner>
-  </Float>
-))
-const Ghosts = () => [...Array(7)].map((_, i) => (
-  <Float key={i} speed={1.5 + i * 0.2} floatIntensity={3} rotationIntensity={0.3}>
-    <group position={[((i * 9) % 22) - 11, ((i * 5) % 16) - 8, -5 - (i % 3)]}>
-      <mesh><sphereGeometry args={[0.7, 10, 8]} /><meshBasicMaterial color="#e6dcff" transparent opacity={0.35} /></mesh>
-      <mesh position={[-0.22, 0.1, 0.6]}><sphereGeometry args={[0.1, 6, 6]} /><meshBasicMaterial color="#150a1c" /></mesh>
-      <mesh position={[0.22, 0.1, 0.6]}><sphereGeometry args={[0.1, 6, 6]} /><meshBasicMaterial color="#150a1c" /></mesh>
-    </group>
-  </Float>
-))
-const Gears = () => [[-8, 3, 2.2, 0.5], [-3, -4.5, 1.6, -0.8], [6, 3.5, 2.6, -0.4], [9, -3.5, 1.4, 0.9]].map(([x, y, r, s], i) => (
-  <Spinner key={i} sz={s} position={[x, y, -6]}>
-    <mesh rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[r, r, 0.4, 10]} /><meshStandardMaterial color="#8a6a2a" flatShading /></mesh>
-    <mesh rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[r * 0.35, r * 0.35, 0.6, 8]} /><meshStandardMaterial color="#3a2a0e" flatShading /></mesh>
-  </Spinner>
-))
-const Rings = () => [2, 3.4, 4.8, 6.2].map((r, i) => (
-  <Spinner key={i} sx={0.5 - i * 0.2} sy={0.3 + i * 0.15} position={[0, 0, -8]}>
-    <mesh><torusGeometry args={[r, 0.07, 8, 48]} /><meshBasicMaterial color={i % 2 ? '#ff2d55' : '#ff8a3d'} /></mesh>
-  </Spinner>
-))
-function Flash() {
-  const m = useRef(), v = useRef(0)
-  useFrame(() => {
-    if (Math.random() < 0.006) v.current = 0.4
-    v.current *= 0.9
-    m.current.opacity = v.current
-  })
-  return <mesh position={[0, 0, -10]}><planeGeometry args={[60, 40]} /><meshBasicMaterial ref={m} color="#dbe7ff" transparent opacity={0} /></mesh>
-}
-function Bg({ th }) {
-  const f = th.fx
-  return (
-    <>
-      {th.stars && <Stars radius={40} depth={20} count={1200} factor={4} fade speed={1} />}
-      {typeof f === 'object' && <Particles {...f} />}
-      {f === 'planets' && <Planets />}{f === 'cubes' && <Cubes />}{f === 'ghosts' && <Ghosts />}
-      {f === 'gears' && <Gears />}{f === 'rings' && <Rings />}
-      {th.flash && <Flash />}
-    </>
-  )
-}
 
 // Camera: whole level on wide screens, follows the player on tall (portrait) screens
 function CamRig({ me, zoom }) {
@@ -207,7 +125,6 @@ export default function Scene({ st, objs, objV, roster, me, K, T, sock, lvl, zoo
       <color attach="background" args={[th.bg]} key={th.bg} />
       <ambientLight intensity={0.9} /><directionalLight position={[4, 6, 8]} intensity={1.4} />
       <CamRig me={me} zoom={zoom} />
-      <Bg th={th} key={li} />
       <Sim {...{ st, objs, me, K, T, sock, lvlRef }} />
       {objs.current.map((o, i) => <Obj key={objV + '-' + i} o={o} i={i} T={T} th={th} />)}
       <Door lv={lv} T={T} key={'d' + li} />

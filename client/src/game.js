@@ -86,14 +86,14 @@ export const LEVELS = [
 export const genLevel = (n) => JSON.parse(JSON.stringify(LEVELS[Math.min(n, 9)].objs))
 
 export const THEMES = [
-  { bg: '#0b0a1e', pc: '#4ade80', stars: true, fx: 'planets' },
-  { bg: '#120a22', pc: '#a78bfa', stars: true, fx: { n: 30, vx: -5, vy: -6, sx: 0.04, sy: 0.9, color: '#ffd9a0' } },
-  { bg: '#2a0a08', pc: '#e07a3f', fx: { n: 60, vx: 0, vy: 1.5, sx: 0.12, sy: 0.12, sw: 0.6, color: '#ff7a2a' } },
-  { bg: '#082033', pc: '#9bd7f2', fx: { n: 80, vx: -0.4, vy: -1.2, sx: 0.1, sy: 0.1, sw: 0.5, color: '#d8f3ff' } },
-  { bg: '#12062a', pc: '#ff4fd8', stars: true, fx: 'cubes' },
-  { bg: '#08220f', pc: '#a3e635', fx: { n: 40, vx: 0, vy: 1, sx: 0.18, sy: 0.18, sw: 0.5, color: '#7cff8a' } },
-  { bg: '#10151f', pc: '#8aa4c8', flash: true, fx: { n: 120, vx: -1.5, vy: -14, sx: 0.02, sy: 0.6, color: '#9fc3ff' } },
-  { bg: '#150a1c', pc: '#9d7bd8', stars: true, fx: 'ghosts' },
-  { bg: '#1f1708', pc: '#d6a64a', fx: 'gears' },
-  { bg: '#26050c', pc: '#e5484d', stars: true, fx: 'rings' },
+  { bg: '#0b0a1e', pc: '#4ade80' },
+  { bg: '#120a22', pc: '#a78bfa' },
+  { bg: '#2a0a08', pc: '#e07a3f' },
+  { bg: '#082033', pc: '#9bd7f2' },
+  { bg: '#12062a', pc: '#ff4fd8' },
+  { bg: '#08220f', pc: '#a3e635' },
+  { bg: '#10151f', pc: '#8aa4c8' },
+  { bg: '#150a1c', pc: '#9d7bd8' },
+  { bg: '#1f1708', pc: '#d6a64a' },
+  { bg: '#26050c', pc: '#e5484d' },
 ]
